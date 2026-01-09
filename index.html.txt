@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ML Dataset Analyzer</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background:#f2f2f2; margin: 4px 6px 0 0; }
+    .big { font-size: 28px; font-weight: 700; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #333; background: #111; color: #fff; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    ul { margin: 8px 0 0 18px; }
+    .muted { color: #666; }
+    .drop { border: 2px dashed #bbb; border-radius: 12px; padding: 18px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>ML Dataset Analyzer</h1>
+  <p class="muted">Sube un CSV y obtén un diagnóstico rápido (target, nulos, constantes, IDs/leakage, desbalance, score).</p>
+
+  <div class="card">
+    <div class="drop" id="drop">
+      <p><strong>Arrastra tu CSV aquí</strong> o selecciona un archivo:</p>
+      <input id="file" type="file" accept=".csv" />
+      <div style="margin-top:12px;">
+        <button id="btn" disabled>Analizar</button>
+      </div>
+      <p class="muted" id="status"></p>
+    </div>
+  </div>
+
+  <div class="card" id="scoreCard" style="display:none;">
+    <div class="row" style="align-items:center; justify-content:space-between;">
+      <div>
+        <div class="muted">FINAL SCORE</div>
+        <div class="big" id="scoreText"></div>
+      </div>
+      <div id="gradePill" class="pill"></div>
+    </div>
+  </div>
+
+  <div class="card" id="issuesCard" style="display:none;">
+    <h3>Issues</h3>
+    <ul id="issues"></ul>
+  </div>
+
+  <div class="card" id="recsCard" style="display:none;">
+    <h3>Recomendaciones</h3>
+    <ul id="recs"></ul>
+  </div>
+
+  <div class="card" id="summaryCard" style="display:none;">
+    <h3>Summary</h3>
+    <div id="summary"></div>
+  </div>
+
+  <script>
+    const API = "http://127.0.0.1:5000/analyze"; // si despliegas, lo cambias
+
+    const fileInput = document.getElementById("file");
+    const btn = document.getElementById("btn");
+    const statusEl = document.getElementById("status");
+    const drop = document.getElementById("drop");
+
+    const scoreCard = document.getElementById("scoreCard");
+    const scoreText = document.getElementById("scoreText");
+    const gradePill = document.getElementById("gradePill");
+
+    const issuesCard = document.getElementById("issuesCard");
+    const issuesUl = document.getElementById("issues");
+
+    const recsCard = document.getElementById("recsCard");
+    const recsUl = document.getElementById("recs");
+
+    const summaryCard = document.getElementById("summaryCard");
+    const summaryDiv = document.getElementById("summary");
+
+    function setStatus(msg) { statusEl.textContent = msg || ""; }
+
+    function li(text) {
+      const el = document.createElement("li");
+      el.textContent = text;
+      return el;
+    }
+
+    function render(obj) {
+      // score
+      const fs = obj.final_score || {};
+      scoreText.textContent = `${fs.viability_score ?? "?"}/100`;
+      gradePill.textContent = `Grade: ${fs.grade ?? "?"}`;
+      scoreCard.style.display = "block";
+
+      // issues
+      issuesUl.innerHTML = "";
+      (obj.issues || []).forEach(x => issuesUl.appendChild(li(x)));
+      issuesCard.style.display = "block";
+
+      // recs
+      recsUl.innerHTML = "";
+      (obj.recommendations || []).forEach(x => recsUl.appendChild(li(x)));
+      recsCard.style.display = "block";
+
+      // summary (simple key: value)
+      summaryDiv.innerHTML = "";
+      const s = obj.summary || {};
+      Object.keys(s).sort().forEach(k => {
+        const row = document.createElement("div");
+        row.className = "pill";
+        row.textContent = `${k}: ${s[k]}`;
+        summaryDiv.appendChild(row);
+      });
+      summaryCard.style.display = "block";
+    }
+
+    async function analyzeFile(file) {
+      btn.disabled = true;
+      setStatus("Analizando...");
+
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const res = await fetch(API, { method: "POST", body: fd });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus(data.error || "Error desconocido");
+        btn.disabled = false;
+        return;
+      }
+
+      setStatus("Listo ✅");
+      render(data);
+      btn.disabled = false;
+    }
+
+    fileInput.addEventListener("change", () => {
+      btn.disabled = !fileInput.files?.[0];
+      setStatus(fileInput.files?.[0] ? `Archivo: ${fileInput.files[0].name}` : "");
+    });
+
+    btn.addEventListener("click", () => {
+      const f = fileInput.files?.[0];
+      if (f) analyzeFile(f);
+    });
+
+    // Drag & drop
+    ["dragenter","dragover"].forEach(evt => drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.borderColor = "#333";
+    }));
+    ["dragleave","drop"].forEach(evt => drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.borderColor = "#bbb";
+    }));
+    drop.addEventListener("drop", e => {
+      const f = e.dataTransfer.files?.[0];
+      if (f) {
+        fileInput.files = e.dataTransfer.files;
+        btn.disabled = false;
+        setStatus(`Archivo: ${f.name}`);
+      }
+    });
+  </script>
+</body>
+</html>
