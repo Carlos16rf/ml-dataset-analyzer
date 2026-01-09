@@ -1,0 +1,18 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Datos
+*.csv
+
+# IDE
+.vscode/
+.idea/
