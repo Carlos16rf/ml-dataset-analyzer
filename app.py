@@ -5,7 +5,15 @@ from analyze import analyze_dataset, compute_viability_score
 import io, base64
 import matplotlib.pyplot as plt
 
-app = Flask(__name__)
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "template"),
+    static_folder=os.path.join(BASE_DIR, "static")
+)
+
 app.json.ensure_ascii = False  # para que salgan tildes bien
 def fig_to_base64(fig):
     buf = io.BytesIO()
