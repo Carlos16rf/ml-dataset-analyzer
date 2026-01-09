@@ -1,0 +1,4 @@
+flask
+pandas 
+matplotlib==3.8.4
+gunicorn
