@@ -52,10 +52,33 @@ def analyze():
 
     summary, issues, recs = analyze_dataset(df)
     score, grade = compute_viability_score(summary)
-    plots = {}
 
+    plots = {}
     target = summary.get("target")
     ptype = summary.get("problem_type")
+
+    # -----------------------
+    # PLOT: Missing values top10
+    # -----------------------
+    null_pct = df.isna().mean().sort_values(ascending=False)
+    top_null = null_pct[null_pct > 0].head(10)
+    if len(top_null) > 0:
+        fig = plt.figure()
+        (top_null * 100).plot(kind="bar")
+        plt.ylabel("% nulos")
+        plt.title("Top columnas con valores nulos")
+        plots["missing_values_top10"] = fig_to_base64(fig)
+
+    # -----------------------
+    # CLASIFICACIÓN: distribución de target
+    # -----------------------
+    if target and ptype == "classification":
+        vc = df[target].value_counts(dropna=False).head(10)
+        fig = plt.figure()
+        vc.plot(kind="bar")
+        plt.ylabel("conteo")
+        plt.title(f"Distribución de target: {target}")
+        plots["target_distribution"] = fig_to_base64(fig)
 
     # -----------------------
     # REGRESIÓN: plots útiles del target
@@ -89,7 +112,7 @@ def analyze():
                 plt.ylabel(target)
                 plots["target_vs_best_feature"] = fig_to_base64(fig)
 
-    # (Opcional) histograma de Amount si existe
+    # histograma de Amount si existe
     if "Amount" in df.columns:
         fig = plt.figure()
         df["Amount"].dropna().plot(kind="hist", bins=50)
