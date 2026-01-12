@@ -113,15 +113,15 @@ if target and ptype == "regression":
         plt.title(f"Histograma: {hist_col}")
         plots["histogram"] = fig_to_base64(fig)
 
-    return jsonify({
-        "summary": summary,
-        "issues": issues,
-        "recommendations": recs,
-        "final_score": {
-            "viability_score": score,
-            "grade": grade
+return jsonify({
+    "summary": summary,
+    "issues": issues,
+    "recommendations": recs,
+    "final_score": {
+        "viability_score": score,
+        "grade": grade
         },
-        "plots": plots
+    "plots": plots
     })
 
 if __name__ == "__main__":
