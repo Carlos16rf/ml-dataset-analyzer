@@ -54,74 +54,58 @@ def analyze():
     score, grade = compute_viability_score(summary)
     plots = {}
 
-target = summary.get("target")
-ptype = summary.get("problem_type")
-# ---------
-# REGRESIÓN: plots útiles del target
-# ---------
+    target = summary.get("target")
+    ptype = summary.get("problem_type")
 
-if target and ptype == "regression":
-    # 1) Histograma del TARGET
-    fig = plt.figure()
-    df[target].dropna().plot(kind="hist", bins=50)
-    plt.title(f"Distribución del target (regresión): {target}")
-    plt.xlabel(target)
-    plt.ylabel("frecuencia")
-    plots["target_histogram"] = fig_to_base64(fig)
-
-    # 2) Scatter target vs feature más correlacionada (numéricas)
-    num_cols = df.select_dtypes(include="number").columns.tolist()
-    if target in num_cols:
-        feature_candidates = [c for c in num_cols if c != target]
-
-        best_feat = None
-        best_corr = 0.0
-
-        if feature_candidates:
-            # correlación con el target (ignorando NaNs)
-            corr_series = df[feature_candidates + [target]].corr(numeric_only=True)[target].drop(labels=[target])
-            # seleccionar la de mayor correlación absoluta
-            best_feat = corr_series.abs().idxmax()
-            best_corr = float(corr_series[best_feat])
-
-        if best_feat:
-            # Para datasets grandes, sampleamos para que el plot sea ligero y legible
-            plot_df = df[[best_feat, target]].dropna()
-            if len(plot_df) > 5000:
-                plot_df = plot_df.sample(5000, random_state=42)
-
-            fig = plt.figure()
-            plt.scatter(plot_df[best_feat], plot_df[target], s=8)  # s pequeño para puntos
-            plt.title(f"{target} vs {best_feat} (corr={best_corr:.2f})")
-            plt.xlabel(best_feat)
-            plt.ylabel(target)
-            plots["target_vs_best_feature"] = fig_to_base64(fig)
-
-
-    # Plot 3: Histograma de variable numérica
-    num_cols = df.select_dtypes(include="number").columns.tolist()
-    hist_col = None
-
-    if "Amount" in df.columns:
-        hist_col = "Amount"
-    elif len(num_cols) > 0:
-        hist_col = num_cols[0]
-
-    if hist_col:
+    # -----------------------
+    # REGRESIÓN: plots útiles del target
+    # -----------------------
+    if target and ptype == "regression":
+        # 1) Histograma del TARGET
         fig = plt.figure()
-        df[hist_col].dropna().plot(kind="hist", bins=50)
-        plt.title(f"Histograma: {hist_col}")
-        plots["histogram"] = fig_to_base64(fig)
+        df[target].dropna().plot(kind="hist", bins=50)
+        plt.title(f"Distribución del target (regresión): {target}")
+        plt.xlabel(target)
+        plt.ylabel("frecuencia")
+        plots["target_histogram"] = fig_to_base64(fig)
 
-return jsonify({
-    "summary": summary,
-    "issues": issues,
-    "recommendations": recs,
-    "final_score": {
-        "viability_score": score,
-        "grade": grade
+        # 2) Scatter target vs feature más correlacionada
+        num_cols = df.select_dtypes(include="number").columns.tolist()
+        if target in num_cols:
+            feature_candidates = [c for c in num_cols if c != target]
+            if feature_candidates:
+                corr_series = df[feature_candidates + [target]].corr(numeric_only=True)[target].drop(labels=[target])
+                best_feat = corr_series.abs().idxmax()
+                best_corr = float(corr_series[best_feat])
+
+                plot_df = df[[best_feat, target]].dropna()
+                if len(plot_df) > 5000:
+                    plot_df = plot_df.sample(5000, random_state=42)
+
+                fig = plt.figure()
+                plt.scatter(plot_df[best_feat], plot_df[target], s=8)
+                plt.title(f"{target} vs {best_feat} (corr={best_corr:.2f})")
+                plt.xlabel(best_feat)
+                plt.ylabel(target)
+                plots["target_vs_best_feature"] = fig_to_base64(fig)
+
+    # (Opcional) histograma de Amount si existe
+    if "Amount" in df.columns:
+        fig = plt.figure()
+        df["Amount"].dropna().plot(kind="hist", bins=50)
+        plt.title("Histograma: Amount")
+        plots["amount_histogram"] = fig_to_base64(fig)
+
+    # ✅ Return SIEMPRE dentro de la función
+    return jsonify({
+        "summary": summary,
+        "issues": issues,
+        "recommendations": recs,
+        "final_score": {
+            "viability_score": score,
+            "grade": grade
         },
-    "plots": plots
+        "plots": plots
     })
 
 if __name__ == "__main__":
