@@ -54,26 +54,49 @@ def analyze():
     score, grade = compute_viability_score(summary)
     plots = {}
 
-    # Plot 1: Missing values (top 10)
-    null_pct = df.isna().mean().sort_values(ascending=False)
-    top_null = null_pct[null_pct > 0].head(10)
-    if len(top_null) > 0:
-        fig = plt.figure()
-        (top_null * 100).plot(kind="bar")
-        plt.ylabel("% nulos")
-        plt.title("Top columnas con valores nulos")
-        plots["missing_values_top10"] = fig_to_base64(fig)
+target = summary.get("target")
+ptype = summary.get("problem_type")
+# ---------
+# REGRESIÓN: plots útiles del target
+# ---------
 
-    # Plot 2: Target distribution (si clasificación)
-    target = summary.get("target")
-    ptype = summary.get("problem_type")
-    if target and ptype == "classification":
-        vc = df[target].value_counts(dropna=False).head(10)
-        fig = plt.figure()
-        vc.plot(kind="bar")
-        plt.ylabel("conteo")
-        plt.title(f"Distribución de target: {target}")
-        plots["target_distribution"] = fig_to_base64(fig)
+if target and ptype == "regression":
+    # 1) Histograma del TARGET
+    fig = plt.figure()
+    df[target].dropna().plot(kind="hist", bins=50)
+    plt.title(f"Distribución del target (regresión): {target}")
+    plt.xlabel(target)
+    plt.ylabel("frecuencia")
+    plots["target_histogram"] = fig_to_base64(fig)
+
+    # 2) Scatter target vs feature más correlacionada (numéricas)
+    num_cols = df.select_dtypes(include="number").columns.tolist()
+    if target in num_cols:
+        feature_candidates = [c for c in num_cols if c != target]
+
+        best_feat = None
+        best_corr = 0.0
+
+        if feature_candidates:
+            # correlación con el target (ignorando NaNs)
+            corr_series = df[feature_candidates + [target]].corr(numeric_only=True)[target].drop(labels=[target])
+            # seleccionar la de mayor correlación absoluta
+            best_feat = corr_series.abs().idxmax()
+            best_corr = float(corr_series[best_feat])
+
+        if best_feat:
+            # Para datasets grandes, sampleamos para que el plot sea ligero y legible
+            plot_df = df[[best_feat, target]].dropna()
+            if len(plot_df) > 5000:
+                plot_df = plot_df.sample(5000, random_state=42)
+
+            fig = plt.figure()
+            plt.scatter(plot_df[best_feat], plot_df[target], s=8)  # s pequeño para puntos
+            plt.title(f"{target} vs {best_feat} (corr={best_corr:.2f})")
+            plt.xlabel(best_feat)
+            plt.ylabel(target)
+            plots["target_vs_best_feature"] = fig_to_base64(fig)
+
 
     # Plot 3: Histograma de variable numérica
     num_cols = df.select_dtypes(include="number").columns.tolist()
